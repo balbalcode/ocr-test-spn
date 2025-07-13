@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Extract Fields from Key Card</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <h2>Extract Key Card Fields</h2>
+  <input type="file" id="upload" accept="image/*" />
+  <pre id="output"></pre>
+
+  <script>
+    document.getElementById('upload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = URL.createObjectURL(file);
+
+      const result = await Tesseract.recognize(
+        img,
+        'eng',
+        {
+          logger: m => console.log(m)
+        }
+      );
+
+      const text = result.data.text;
+      console.log(text);
+
+      // Basic field extraction using RegEx
+      const roomNumber = text.match(/Room Number\s+(\d+)/i)?.[1];
+      const guestName = text.match(/Guest Name\s+(.+?)\s+Arrival/i)?.[1];
+      const arrivalDate = text.match(/Arrival Date\s+([\d/]+)/i)?.[1];
+      const arrivalTime = text.match(/Arrival Time\s+([\d:]+)/i)?.[1];
+      const departureDate = text.match(/Departure Date\s+([\d/]+)/i)?.[1];
+      const departureTime = text.match(/Departure Time\s+([\d:]+)/i)?.[1];
+      const cardType = text.match(/Card Type\s+(.+)/i)?.[1];
+
+      document.getElementById('output').innerText = `
+Room Number: ${roomNumber}
+Guest Name: ${guestName}
+Arrival Date: ${arrivalDate}
+Arrival Time: ${arrivalTime}
+Departure Date: ${departureDate}
+Departure Time: ${departureTime}
+Card Type: ${cardType}
+      `.trim();
+    });
+  </script>
+</body>
+</html>
+

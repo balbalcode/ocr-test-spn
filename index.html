@@ -4,9 +4,24 @@
   <meta charset="UTF-8">
   <title>Key Card OCR Extractor</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input[type="file"] {
+      margin-bottom: 20px;
+    }
+    pre {
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
-  <h2>Extract Key Card Info</h2>
+  <h2>Key Card OCR Extractor</h2>
   <input type="file" id="imageInput" accept="image/*" />
   <pre id="output">Upload a key card image to extract fields...</pre>
 
@@ -17,7 +32,7 @@
 
       const imgURL = URL.createObjectURL(file);
       const output = document.getElementById('output');
-      output.textContent = 'Processing OCR...';
+      output.textContent = 'Processing OCR... Please wait.';
 
       try {
         const result = await Tesseract.recognize(imgURL, 'eng', {
@@ -25,20 +40,32 @@
         });
 
         const rawText = result.data.text;
-        const text = rawText.replace(/\s+/g, ' ').trim(); // normalize spacing
+        const text = rawText.replace(/\s+/g, ' ').trim(); // normalize
 
-        // Optional debug
-        console.log('OCR Raw Text:', rawText);
-        console.log('Cleaned Text:', text);
+        function cleanDate(str) {
+          return str?.replace(/[^0-9/]/g, '').replace(/\/{2,}/g, '/');
+        }
 
-        // Field parsing
+        function cleanTime(str) {
+          return str?.replace(/[^0-9:]/g, '');
+        }
+
         const roomNumber = text.match(/Room Number[:\s]*([0-9]+)/i)?.[1];
         const guestName = text.match(/Guest Name[:\s]*([A-Z,\s]+?)Arrival/i)?.[1]?.trim();
-        const arrivalDate = text.match(/Arrival Date[:\s]*([\d/]+)/i)?.[1];
-        const arrivalTime = text.match(/Arrival Time[:\s]*([\d:]+)/i)?.[1];
-        const departureDate = text.match(/Departure Date[:\s]*([\d/]+)/i)?.[1];
-        const departureTime = text.match(/Departure Time[:\s]*([\d:]+)/i)?.[1];
-        const cardType = text.match(/Card Type[:\s]*(.+)/i)?.[1];
+
+        const arrivalDateRaw = text.match(/Arrival Date[:\s]*([0-9\s\/]+)/i)?.[1];
+        const arrivalDate = cleanDate(arrivalDateRaw);
+
+        const arrivalTimeRaw = text.match(/Arrival Time[:\s]*([0-9:\s]+)/i)?.[1];
+        const arrivalTime = cleanTime(arrivalTimeRaw);
+
+        const departureDateRaw = text.match(/Departure Date[:\s]*([0-9\s\/]+)/i)?.[1];
+        const departureDate = cleanDate(departureDateRaw);
+
+        const departureTimeRaw = text.match(/Departure Time[:\s]*([0-9:\s]+)/i)?.[1];
+        const departureTime = cleanTime(departureTimeRaw);
+
+        const cardType = text.match(/Card Type[:\s]*(.+)/i)?.[1]?.replace(/[^a-zA-Z ]/g, '').trim();
 
         output.textContent = `
 Room Number: ${roomNumber || 'Not found'}
@@ -51,7 +78,7 @@ Card Type: ${cardType || 'Not found'}
         `.trim();
 
       } catch (err) {
-        output.textContent = 'Error processing image: ' + err.message;
+        output.textContent = 'Error: ' + err.message;
         console.error(err);
       }
     });

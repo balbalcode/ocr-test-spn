@@ -1,50 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Extract Fields from Key Card</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Key Card OCR Extractor</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 </head>
 <body>
-  <h2>Extract Key Card Fields</h2>
-  <input type="file" id="upload" accept="image/*" />
-  <pre id="output"></pre>
+  <h2>Extract Key Card Info</h2>
+  <input type="file" id="imageInput" accept="image/*" />
+  <pre id="output">Upload a key card image to extract fields...</pre>
 
   <script>
-    document.getElementById('upload').addEventListener('change', async (e) => {
+    document.getElementById('imageInput').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const img = URL.createObjectURL(file);
+      const imgURL = URL.createObjectURL(file);
+      const output = document.getElementById('output');
+      output.textContent = 'Processing OCR...';
 
-      const result = await Tesseract.recognize(
-        img,
-        'eng',
-        {
+      try {
+        const result = await Tesseract.recognize(imgURL, 'eng', {
           logger: m => console.log(m)
-        }
-      );
+        });
 
-      const text = result.data.text;
-      console.log(text);
+        const rawText = result.data.text;
+        const text = rawText.replace(/\s+/g, ' ').trim(); // normalize spacing
 
-      // Basic field extraction using RegEx
-      const roomNumber = text.match(/Room Number\s+(\d+)/i)?.[1];
-      const guestName = text.match(/Guest Name\s+(.+?)\s+Arrival/i)?.[1];
-      const arrivalDate = text.match(/Arrival Date\s+([\d/]+)/i)?.[1];
-      const arrivalTime = text.match(/Arrival Time\s+([\d:]+)/i)?.[1];
-      const departureDate = text.match(/Departure Date\s+([\d/]+)/i)?.[1];
-      const departureTime = text.match(/Departure Time\s+([\d:]+)/i)?.[1];
-      const cardType = text.match(/Card Type\s+(.+)/i)?.[1];
+        // Optional debug
+        console.log('OCR Raw Text:', rawText);
+        console.log('Cleaned Text:', text);
 
-      document.getElementById('output').innerText = `
-Room Number: ${roomNumber}
-Guest Name: ${guestName}
-Arrival Date: ${arrivalDate}
-Arrival Time: ${arrivalTime}
-Departure Date: ${departureDate}
-Departure Time: ${departureTime}
-Card Type: ${cardType}
-      `.trim();
+        // Field parsing
+        const roomNumber = text.match(/Room Number[:\s]*([0-9]+)/i)?.[1];
+        const guestName = text.match(/Guest Name[:\s]*([A-Z,\s]+?)Arrival/i)?.[1]?.trim();
+        const arrivalDate = text.match(/Arrival Date[:\s]*([\d/]+)/i)?.[1];
+        const arrivalTime = text.match(/Arrival Time[:\s]*([\d:]+)/i)?.[1];
+        const departureDate = text.match(/Departure Date[:\s]*([\d/]+)/i)?.[1];
+        const departureTime = text.match(/Departure Time[:\s]*([\d:]+)/i)?.[1];
+        const cardType = text.match(/Card Type[:\s]*(.+)/i)?.[1];
+
+        output.textContent = `
+Room Number: ${roomNumber || 'Not found'}
+Guest Name: ${guestName || 'Not found'}
+Arrival Date: ${arrivalDate || 'Not found'}
+Arrival Time: ${arrivalTime || 'Not found'}
+Departure Date: ${departureDate || 'Not found'}
+Departure Time: ${departureTime || 'Not found'}
+Card Type: ${cardType || 'Not found'}
+        `.trim();
+
+      } catch (err) {
+        output.textContent = 'Error processing image: ' + err.message;
+        console.error(err);
+      }
     });
   </script>
 </body>

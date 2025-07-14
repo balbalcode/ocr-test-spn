@@ -9,63 +9,67 @@
       font-family: Arial, sans-serif;
       padding: 20px;
     }
-    input[type="file"] {
+    input {
       margin-bottom: 20px;
     }
     pre {
-      background: #f0f0f0;
-      padding: 15px;
-      border-radius: 5px;
+      background: #f9f9f9;
+      padding: 10px;
       white-space: pre-wrap;
+      border-radius: 5px;
+      border: 1px solid #ccc;
     }
   </style>
 </head>
 <body>
   <h2>Key Card OCR Extractor</h2>
   <input type="file" id="imageInput" accept="image/*" />
-  <pre id="output">Upload a key card image to extract fields...</pre>
+  <pre id="output">Upload your key card image...</pre>
 
   <script>
     document.getElementById('imageInput').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const imgURL = URL.createObjectURL(file);
+      const imageUrl = URL.createObjectURL(file);
       const output = document.getElementById('output');
-      output.textContent = 'Processing OCR... Please wait.';
+      output.textContent = 'Processing image...';
+
+      const cleanDate = (str) =>
+        str?.replace(/[^0-9/]/g, '').replace(/\/+/g, '/').trim();
+
+      const cleanTime = (str) =>
+        str?.replace(/[^0-9:]/g, '').replace(/:+/g, ':').trim();
 
       try {
-        const result = await Tesseract.recognize(imgURL, 'eng', {
+        const result = await Tesseract.recognize(imageUrl, 'eng', {
           logger: m => console.log(m)
         });
 
         const rawText = result.data.text;
-        const text = rawText.replace(/\s+/g, ' ').trim(); // normalize
+        console.log("RAW OCR TEXT:", rawText);
 
-        function cleanDate(str) {
-          return str?.replace(/[^0-9/]/g, '').replace(/\/{2,}/g, '/');
-        }
+        // Normalize all spaces to single space
+        const text = rawText.replace(/\s+/g, ' ').trim();
 
-        function cleanTime(str) {
-          return str?.replace(/[^0-9:]/g, '');
-        }
+        // Try flexible regex patterns
+        const roomNumber = text.match(/Room\s*Number[:\s]*([0-9]+)/i)?.[1];
+        const guestName = text.match(/Guest\s*Name[:\s]*([A-Z ,.\-]+?)\s+Arrival/i)?.[1];
 
-        const roomNumber = text.match(/Room Number[:\s]*([0-9]+)/i)?.[1];
-        const guestName = text.match(/Guest Name[:\s]*([A-Z,\s]+?)Arrival/i)?.[1]?.trim();
-
-        const arrivalDateRaw = text.match(/Arrival Date[:\s]*([0-9\s\/]+)/i)?.[1];
+        const arrivalDateRaw = text.match(/Arrival\s*Date[:\s]*([0-9\s\/]+)/i)?.[1];
         const arrivalDate = cleanDate(arrivalDateRaw);
 
-        const arrivalTimeRaw = text.match(/Arrival Time[:\s]*([0-9:\s]+)/i)?.[1];
+        const arrivalTimeRaw = text.match(/Arrival\s*Time[:\s]*([0-9\s:]+)/i)?.[1];
         const arrivalTime = cleanTime(arrivalTimeRaw);
 
-        const departureDateRaw = text.match(/Departure Date[:\s]*([0-9\s\/]+)/i)?.[1];
+        const departureDateRaw = text.match(/Departure\s*Date[:\s]*([0-9\s\/]+)/i)?.[1];
         const departureDate = cleanDate(departureDateRaw);
 
-        const departureTimeRaw = text.match(/Departure Time[:\s]*([0-9:\s]+)/i)?.[1];
+        const departureTimeRaw = text.match(/Departure\s*Time[:\s]*([0-9\s:]+)/i)?.[1];
         const departureTime = cleanTime(departureTimeRaw);
 
-        const cardType = text.match(/Card Type[:\s]*(.+)/i)?.[1]?.replace(/[^a-zA-Z ]/g, '').trim();
+        const cardTypeRaw = text.match(/Card\s*Type[:\s]*(.+)$/i)?.[1];
+        const cardType = cardTypeRaw?.replace(/[^a-zA-Z ]/g, '').trim();
 
         output.textContent = `
 Room Number: ${roomNumber || 'Not found'}
@@ -78,8 +82,8 @@ Card Type: ${cardType || 'Not found'}
         `.trim();
 
       } catch (err) {
-        output.textContent = 'Error: ' + err.message;
         console.error(err);
+        output.textContent = 'Failed to process image: ' + err.message;
       }
     });
   </script>
